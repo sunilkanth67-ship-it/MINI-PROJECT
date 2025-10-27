@@ -1,0 +1,76 @@
+#include <Servo.h>
+
+// Pins
+const int trigPin = 9;
+const int echoPin = 10;
+const int servoPin = 6;
+const int relayPin = 8; // Relay for brake
+
+// Servo positions (mapped to speed levels)
+const int stopPos = 0;       // Servo angle for stop
+const int lowSpeed = 30;     // Servo angle for low speed
+const int mediumSpeed = 60;  // Servo angle for medium speed
+const int fullSpeed = 90;    // Servo angle for full speed
+
+Servo accelerator;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(relayPin, OUTPUT);
+
+  accelerator.attach(servoPin);
+  accelerator.write(stopPos);   // Start at stop
+  digitalWrite(relayPin, LOW);  // Relay OFF initially
+}
+
+// Function to read distance in meters
+float readDistanceM() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  long duration = pulseIn(echoPin, HIGH);
+
+  // Convert to meters (343 m/s speed of sound)
+  float distance = (duration * 0.0343) / 200.0;  
+  return distance;
+}
+
+// Function to convert servo angle → speed in km/h
+int getSpeedKMH(int servoAngle) {
+  return map(servoAngle, 0, 90, 0, 60); // 0°=0 km/h, 90°=60 km/h
+}
+
+void loop() {
+  float distance = readDistanceM();
+  Serial.print("Distance: ");
+  Serial.print(distance, 2); // 2 decimal places
+  Serial.println(" m");
+
+  if (distance < 0.5) { // Less than 0.5m (50cm)
+    digitalWrite(relayPin, HIGH);  // Apply brake
+    accelerator.write(stopPos);    // Servo to stop
+    Serial.println("Braking! Speed: 0 km/h");
+  }
+  else if (distance >= 0.5 && distance < 1.5) {
+    digitalWrite(relayPin, LOW);
+    accelerator.write(lowSpeed);
+    Serial.println("Low Speed: 20 km/h");
+  }
+  else if (distance >= 1.5 && distance < 2.5) {
+    digitalWrite(relayPin, LOW);
+    accelerator.write(mediumSpeed);
+    Serial.println("Medium Speed: 40 km/h");
+  }
+  else {
+    digitalWrite(relayPin, LOW);
+    accelerator.write(fullSpeed);
+    Serial.println("Normal Speed: 60 km/h");
+  }
+
+  delay(200);
+}
